@@ -1,0 +1,322 @@
+---
+title: "NYPD Shooting Incident"
+date: "2023-02-24"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Loading libraries
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+```
+
+## Shooting Data
+
+First we'll load the shooting data using the url and the read_csv method. 
+
+```{r results='hide', message=FALSE, warning=FALSE}
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+```
+
+
+The data will be loaded into a variable call 'df'. 
+
+We'll first call 'df' to get a look at the first few rows of the data. 
+```{r}
+df <- read_csv(url_in)
+print(head(df))
+```
+I can also view the number of rows and columns in this dataframe.
+
+```{r}
+print(nrow(df))
+print(ncol(df))
+```
+It looks like there are 25,596 rows and 19 columns. 
+
+Next, we'll look at the summary of the data. 
+
+
+```{r}
+print(summary(df))
+```
+ Let's look at how many missing values there are.
+ 
+```{r}
+sum(is.na(df))
+```
+There are over 42,943 missing values. Out of the 19 columns from the dataframe, 5 of them have missing values. 
+
+We can see the breakdown of these values with the following code. 
+
+```{r}
+missing_values <- sapply(df, function(x) sum(is.na(x)))
+```
+Missing values by column:
+```{r}
+print(missing_values)
+```
+
+That's good, there are no duplicate rows in this dataframe. 
+
+I'll remove some of the least useful columns now. 
+
+```{r}
+df = subset(df, select = -c(X_COORD_CD, Y_COORD_CD, Latitude, Longitude, Lon_Lat))
+```
+
+Let's check to make sure they were removed. 
+
+```{r}
+print(ncol(df))
+```
+Looks good, we now have 14 columns still in our datframe. 
+
+Next, I'll examine the data more closely. The following code will show the number
+of unique values per column. 
+
+```{r}
+unique_values = sapply(df, function(x) n_distinct(x))
+print(unique_values)
+```
+Looks look at the unique values for some of these categories. Beginning with date.
+
+
+
+```{r}
+df['OCCUR_DATE'][1:5,]
+```
+The date of the shooting would be interesting to look into. I think it'll be
+easier to have the month, day, and year be in separate columns. 
+
+```{r}
+df_copy <- tidyr::separate(df, OCCUR_DATE, c('Month', 'Day', 'Year'), sep = '[/]')
+```
+
+
+Now let's look at our new Month Column.  
+
+```{r}
+df_copy['Month'][1:5,]
+```
+Looks good and matching the first 5 rows from the old data frame. 
+
+```{r}
+unique_years <- unique(df_copy$Year)
+unique_years_count<- table(df_copy$Year)
+
+unique_months <- unique(df_copy$Month)
+unique_months_count <- table(df_copy$Month)
+
+unique_days <- unique(df_copy$Day)
+unique_days_count <- table(df_copy$Day)
+
+```
+
+
+Let's see how many unique values there are per column. 
+
+```{r}
+unique_values_new_columns = sapply(df_copy, function(x) n_distinct(x))
+print(unique_values_new_columns)
+```
+Let's see how many years of data are in this dataset.
+
+```{r}
+unique_years
+```
+The data includes information for 16 years. Let's take a look at the breakdown
+by year. 
+
+
+```{r}
+unique_years_count
+```
+Let's take a look at a visual representation of these counts.
+
+```{r}
+colors <- c('blue')
+years_values_count <- table(df_copy$Year)
+barplot(years_values_count, main='Count by Year', xlab = 'Year', ylab = 'Count',
+        col = colors)
+```
+There was a decrease from 2014 to 2017 before a large spike in 2020 and 2021. 
+
+Next, let's look at the shooting incidents by month. 
+
+```{r}
+unique_months_count
+```
+
+```{r}
+months_values_count <- table(df_copy$Month)
+barplot(months_values_count, main='Count by Month', xlab = 'Month', ylab = 'Count',
+        col = colors)
+```
+
+Interestingly, summer has the most shooting incidents. Spring has the fewest 
+with February being the lowest. This data is from all 16 years of data. 
+
+
+Finally, let's look at the day of the month to see if we can find anything
+interesting in the data. 
+
+
+```{r}
+unique_days_count
+```
+```{r}
+days_values_count <- table(df_copy$Day)
+barplot(days_values_count, main='Count by Day', xlab = 'Day', ylab = 'Count',
+        col = colors)
+```
+Shooting incidents appear to be evenly spread across the beginning, middle, 
+and end of a month. The 31st has the fewest incidents, but that's likely due to
+fewer months having 31 day months. 
+
+
+Next, let's look look at the time of the incidents to see what time most shootings
+took place. 
+
+```{r}
+df_copy['OCCUR_TIME']
+```
+The data is in a good format, however, I will make one change to remove the 
+minutes and seconds.
+
+I'll save a copy of the is column for later use first. 
+
+```{r}
+datetime_full <- df_copy['OCCUR_TIME']
+```
+
+```{r}
+df_copy <- tidyr::separate(df, OCCUR_TIME, c('Hours', 'Minutes', 'Seconds'), sep = '[:]')
+```
+
+```{r}
+df_copy['Hours']
+```
+
+Now that I have just the hours, I can view the shooting incidents by time of day.
+
+```{r}
+hours_values_count <- table(df_copy$'Hours')
+barplot(hours_values_count, main='Count by Hour', xlab = 'Hour of Day', ylab = 'Count',
+        col = colors)
+```
+
+This is an interesting view and shows that there the number of shooting incidents
+increase as the day goes on. There are relatively few shooting incidents 
+in the morning. 8:00 AM - 9:00 is the safest hour of the day in this regard. 
+
+
+
+```{r}
+unique_boro <- unique(df_copy$BORO)
+unique_boro_count <- table(df_copy$BORO)
+```
+
+```{r}
+unique_boro
+```
+The data includes incidents from all 5 boroughs in New York. 
+
+
+Next we'll examine the counts for each column. 
+
+```{r}
+unique_boro_count
+```
+Brooklyn had the most shooting incidents, while Staten Island had the fewest. 
+
+Next, I'll look at both the time of shooting incidents with the location. 
+
+
+```{r}
+new_df <- df_copy %>%
+  select(BORO, Hours)
+```
+
+
+```{r}
+new_table <-table(new_df$BORO, new_df$Hours)
+new_table
+```
+
+This is consistent with what we saw earlier. Looking at a borough by borough view,
+the fewest shooting incidents occurred in the morning and the most happened in 
+the evening. 
+
+```{r}
+borough_colors <- c('blue','green', 'orange', 'yellow', 'purple')
+barplot(new_table,beside=FALSE, legend.text = TRUE, col = borough_colors,
+        main='Shooting Incidents by Borough and Time', xlab = 'Hour of Day', 
+        args.legend = list(x = "top", cex=.55, horiz=TRUE))
+```
+
+### Modeling 
+
+For modeling, I will be looking at predicting whether not a shooting incident
+results in a death based on the hour of the day. 
+
+I will be used a logistic regression model. 
+
+First I'll examine the shooting deaths for the entire dataset. 
+
+```{r}
+colors <- c('blue')
+shooting_values_count <- table(df_copy$STATISTICAL_MURDER_FLAG)
+barplot(shooting_values_count, main='Murder Rate', ylab = 'Incident Count',
+        col = colors)
+```
+```{r}
+murders <- table(df_copy$STATISTICAL_MURDER_FLAG)
+murders
+```
+There were 20,668 shooting incidents that did not result in a death and 
+4,928 shooting incidents that did result in a death. 
+
+```{r}
+df_copy <- df_copy %>%
+  mutate(shooting = ifelse(STATISTICAL_MURDER_FLAG == TRUE, "death", "no death"))
+```
+
+Next, I'll look at the breakdown of shooting incidents by hour. 
+
+```{r}
+new_table_3 <-table(df_copy$Hours, df_copy$shooting)
+new_table_3
+```
+Although morning have fewer total shooting incidents, they have a higher percentage of deaths.
+For example, even though there have only been 206 shooting incidents at 8:00 am,
+33% of those shootings resulted in a death. 11:00 pm had 2190 shooting incidents, 
+20% of which resulted in a death. Perhaps the reason a higher number of people 
+die from early morning shootings is because there are fewer people around to
+provide medical assistance or call an ambulance? 
+
+```{r}
+df_copy <- df %>% 
+  separate(col = OCCUR_TIME, into = c('Hours', 'Minutes', 'Seconds'), sep = '[:]')
+
+```
+
+
+```{r}
+model <- glm(STATISTICAL_MURDER_FLAG ~ Hours, data = df_copy, family = "binomial")
+```
+
+```{r}
+summary(model)
+```
+Our model is somewhat consistent with our findings.
+
+Potential Bias:
+
+I feel the dataset could be bias since many of the columns have missing values. 
+We also don't know how many cases went unreported. 
+
